@@ -125,14 +125,14 @@ Make sure that the user which runs the master server has access to the web path 
 
 ## Client
 There are two client implementations at the moment:
-* Python2 **[preferred]**
-* Python2-psutil
+* Python3 **[preferred]**
+* Python3-psutil
 * Bash
 
 All three scripts are fully supported and as easy to set up.
 More implementations will follow, feel free to create one and make a pull request.
 
-While the Python2 and Bash clients only support GNU/Linux, Python2-psutil supports a wide range of operating systems, such as BSD or Windows, see [Python2-psutil](#python2-psutil-client)
+While the Python3 and Bash clients only support GNU/Linux, Python3-psutil supports a wide range of operating systems, such as BSD or Windows, see [Python3-psutil](#python3-psutil-client)
 
 ## Automatic installation
 The bash script client-setup.sh in other/ is an easy way to set up a new client.
@@ -156,7 +156,7 @@ PASSWORD = "some-hard-to-guess-copy-paste-password"
 INTERVAL = 1 # Update interval
 ```
 
-### Python2-psutil Client
+### Python3-psutil Client
 ```
 SERVER = "status.botox.bz"
 PORT = 35601
@@ -167,7 +167,7 @@ INTERVAL = 1 # Update interval
 This client can be run on all operating systems supported by the [psutil project](https://code.google.com/p/psutil/).
 
 #### Windows
-It will also work on Windows, either use the [precompiled](https://i.botox.bz/serverstatus-client.exe) and self-contained version or install [Python2](http://python.org/downloads/windows/) and [psutil](https://pypi.python.org/pypi?:action=display&name=psutil#downloads). The precompiled version has been built using [py2exe](http://py2exe.org/).
+It will also work on Windows, either use the [precompiled](https://i.botox.bz/serverstatus-client.exe) and self-contained version or install [Python3](http://python.org/downloads/windows/) and [psutil](https://pypi.python.org/pypi?:action=display&name=psutil#downloads). The precompiled version has been built using [py2exe](http://py2exe.org/).
 The setup script is included if you want to build it yourself.
 After installing all the dependencies run "python setup.py py2exe" and hope.
 
