@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 SERVER = "status.botox.bz"
@@ -10,8 +10,6 @@ INTERVAL = 1 # Update interval
 
 import socket
 import time
-import string
-import math
 import os
 import json
 import collections
@@ -40,7 +38,7 @@ def get_hdd():
 	for disk in psutil.disk_partitions():
 		if not disk.device in disks and disk.fstype.lower() in valid_fs:
 			disks[disk.device] = disk.mountpoint
-	for disk in disks.itervalues():
+	for disk in disks.values():
 		usage = psutil.disk_usage(disk)
 		size += usage.total
 		used += usage.used
@@ -61,7 +59,7 @@ class Traffic:
 		self.tx = collections.deque(maxlen=10)
 	def get(self):
 		avgrx = 0; avgtx = 0
-		for name, stats in psutil.net_io_counters(pernic=True).iteritems():
+		for name, stats in psutil.net_io_counters(pernic=True).items():
 			if name == "lo" or name.find("tun") > -1:
 				continue
 			avgrx += stats.bytes_recv
@@ -76,8 +74,8 @@ class Traffic:
 			avgrx += self.rx[x+1] - self.rx[x]
 			avgtx += self.tx[x+1] - self.tx[x]
 
-		avgrx = int(avgrx / l / INTERVAL)
-		avgtx = int(avgtx / l / INTERVAL)
+		avgrx = int(avgrx // l // INTERVAL)
+		avgtx = int(avgtx // l // INTERVAL)
 
 		return avgrx, avgtx
 
@@ -100,10 +98,10 @@ if __name__ == '__main__':
 			print("Connecting...")
 			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			s.connect((SERVER, PORT))
-			data = s.recv(1024)
+			data = s.recv(1024).decode("utf-8")
 			if data.find("Authentication required") > -1:
-				s.send(USER + ':' + PASSWORD + '\n')
-				data = s.recv(1024)
+				s.send((USER + ':' + PASSWORD + '\n').encode("utf-8"))
+				data = s.recv(1024).decode("utf-8")
 				if data.find("Authentication successful") < 0:
 					print(data)
 					raise socket.error
@@ -112,7 +110,7 @@ if __name__ == '__main__':
 				raise socket.error
 
 			print(data)
-			data = s.recv(1024)
+			data = s.recv(1024).decode("utf-8")
 			print(data)
 
 			timer = 0
@@ -155,7 +153,7 @@ if __name__ == '__main__':
 				array['network_rx'] = NetRx
 				array['network_tx'] = NetTx
 
-				s.send("update " + json.dumps(array) + "\n")
+				s.send(("update " + json.dumps(array) + "\n").encode("utf-8"))
 		except KeyboardInterrupt:
 			raise
 		except socket.error:

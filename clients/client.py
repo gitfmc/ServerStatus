@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 SERVER = "status.botox.bz"
@@ -10,8 +10,6 @@ INTERVAL = 1 # Update interval
 
 import socket
 import time
-import string
-import math
 import re
 import os
 import json
@@ -55,7 +53,7 @@ def get_load():
 	return os.getloadavg()[0]
 
 def get_time():
-	stat_file = file("/proc/stat", "r")
+	stat_file = open("/proc/stat", "r")
 	time_list = stat_file.readline().split(' ')[2:6]
 	stat_file.close()
 	for i in range(len(time_list))  :
@@ -103,8 +101,8 @@ class Traffic:
 			avgrx += self.rx[x+1] - self.rx[x]
 			avgtx += self.tx[x+1] - self.tx[x]
 
-		avgrx = int(avgrx / l / INTERVAL)
-		avgtx = int(avgtx / l / INTERVAL)
+		avgrx = int(avgrx // l // INTERVAL)
+		avgtx = int(avgtx // l // INTERVAL)
 
 		return avgrx, avgtx
 
@@ -127,10 +125,10 @@ if __name__ == '__main__':
 			print("Connecting...")
 			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			s.connect((SERVER, PORT))
-			data = s.recv(1024)
+			data = s.recv(1024).decode("utf-8")
 			if data.find("Authentication required") > -1:
-				s.send(USER + ':' + PASSWORD + '\n')
-				data = s.recv(1024)
+				s.send((USER + ':' + PASSWORD + '\n').encode("utf-8"))
+				data = s.recv(1024).decode("utf-8")
 				if data.find("Authentication successful") < 0:
 					print(data)
 					raise socket.error
@@ -139,7 +137,7 @@ if __name__ == '__main__':
 				raise socket.error
 
 			print(data)
-			data = s.recv(1024)
+			data = s.recv(1024).decode("utf-8")
 			print(data)
 
 			timer = 0
@@ -181,7 +179,7 @@ if __name__ == '__main__':
 				array['network_rx'] = NetRx
 				array['network_tx'] = NetTx
 
-				s.send("update " + json.dumps(array) + "\n")
+				s.send(("update " + json.dumps(array) + "\n").encode("utf-8"))
 		except KeyboardInterrupt:
 			raise
 		except socket.error:
