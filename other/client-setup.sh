@@ -3,14 +3,29 @@
 normal=$(tput sgr0)
 bold=$(tput bold)
 
-PYTHON_CLIENT="https://raw.githubusercontent.com/BotoX/ServerStatus/master/clients/client.py"
-PYTHONPSUTIL_CLIENT="https://raw.githubusercontent.com/BotoX/ServerStatus/master/clients/client-psutil.py"
-BASH_CLIENT="https://raw.githubusercontent.com/BotoX/ServerStatus/master/clients/client.sh"
+PYTHON_CLIENT="https://raw.githubusercontent.com/gitfmc/ServerStatus/master/clients/client.py"
+PYTHONPSUTIL_CLIENT="https://raw.githubusercontent.com/gitfmc/ServerStatus/master/clients/client-psutil.py"
+BASH_CLIENT="https://raw.githubusercontent.com/gitfmc/ServerStatus/master/clients/client.sh"
 
 CWD=$(pwd)
 
 command_exists () {
 	type "$1" &> /dev/null ;
+}
+
+# Download $1 to $2, aborting on a failed request or an empty result
+# instead of silently installing a broken (0-byte) client.
+fetch_client () {
+	if ! curl -fL "$1" -o "$2"; then
+		echo "${bold}Download failed${normal} from $1"
+		rm -f "$2"
+		exit 1
+	fi
+	if [ ! -s "$2" ]; then
+		echo "${bold}Downloaded an empty file${normal} from $1, aborting."
+		rm -f "$2"
+		exit 1
+	fi
 }
 
 if ! command_exists curl; then
@@ -63,7 +78,7 @@ user_input ()
 
 echo
 echo "ServerStatus Client Setup Script"
-echo "https://github.com/BotoX/ServerStatus"
+echo "https://github.com/gitfmc/ServerStatus"
 echo
 
 echo "Which client implementation do you want to use? [${bold}python${normal}, python-psutil, bash]"
@@ -142,10 +157,11 @@ fi
 
 if [ "$CLIENT" == "python" ]; then
 	echo "Magic going on..."
-	curl -L "$PYTHON_CLIENT" | sed -e "0,/^SERVER = .*$/s//SERVER = \"${SERVER}\"/" \
+	fetch_client "$PYTHON_CLIENT" "${CWD}/serverstatus-client.py"
+	sed -i -e "0,/^SERVER = .*$/s//SERVER = \"${SERVER}\"/" \
 		-e "0,/^PORT = .*$/s//PORT = ${PORT}/" \
 		-e "0,/^USER = .*$/s//USER = \"${USERNAME}\"/" \
-		-e "0,/^PASSWORD = .*$/s//PASSWORD = \"${PASSWORD}\"/" > "${CWD}/serverstatus-client.py"
+		-e "0,/^PASSWORD = .*$/s//PASSWORD = \"${PASSWORD}\"/" "${CWD}/serverstatus-client.py"
 	chmod +x "${CWD}/serverstatus-client.py"
 	CLIENT_BIN="${CWD}/serverstatus-client.py"
 	echo
@@ -153,21 +169,23 @@ if [ "$CLIENT" == "python" ]; then
 
 elif [ "$CLIENT" == "python-psutil" ]; then
 	echo "Magic going on..."
-	curl -L "$PYTHONPSUTIL_CLIENT" | sed -e "0,/^SERVER = .*$/s//SERVER = \"${SERVER}\"/" \
+	fetch_client "$PYTHONPSUTIL_CLIENT" "${CWD}/serverstatus-client-psutil.py"
+	sed -i -e "0,/^SERVER = .*$/s//SERVER = \"${SERVER}\"/" \
 		-e "0,/^PORT = .*$/s//PORT = ${PORT}/" \
 		-e "0,/^USER = .*$/s//USER = \"${USERNAME}\"/" \
-		-e "0,/^PASSWORD = .*$/s//PASSWORD = \"${PASSWORD}\"/" > "${CWD}/serverstatus-client-psutil.py"
-	chmod +x "${CWD}/serverstatus-client.py"
+		-e "0,/^PASSWORD = .*$/s//PASSWORD = \"${PASSWORD}\"/" "${CWD}/serverstatus-client-psutil.py"
+	chmod +x "${CWD}/serverstatus-client-psutil.py"
 	CLIENT_BIN="${CWD}/serverstatus-client-psutil.py"
 	echo
 	echo "Python-psutil client copied to ${CWD}/serverstatus-client-psutil.py"
 
 elif [ "$CLIENT" == "bash" ]; then
 	echo "Magic going on..."
-	curl -L "$BASH_CLIENT" | sed -e "0,/^SERVER=.*$/s//SERVER=\"${SERVER}\"/" \
+	fetch_client "$BASH_CLIENT" "${CWD}/serverstatus-client.sh"
+	sed -i -e "0,/^SERVER=.*$/s//SERVER=\"${SERVER}\"/" \
 		-e "0,/^PORT=.*$/s//PORT=${PORT}/" \
 		-e "0,/^USER=.*$/s//USER=\"${USERNAME}\"/" \
-		-e "0,/^PASSWORD=.*$/s//PASSWORD=\"${PASSWORD}\"/" > "${CWD}/serverstatus-client.sh"
+		-e "0,/^PASSWORD=.*$/s//PASSWORD=\"${PASSWORD}\"/" "${CWD}/serverstatus-client.sh"
 	chmod +x "${CWD}/serverstatus-client.sh"
 	CLIENT_BIN="${CWD}/serverstatus-client.sh"
 	echo
