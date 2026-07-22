@@ -199,6 +199,21 @@ int CMain::HandleMessage(int ClientNetID, char *pMessage)
 	return 1;
 }
 
+// Escape a string for embedding in a JSON string literal ('"' and '\').
+// Control characters are already stripped on receive (str_sanitize_cc) and
+// config files are trusted, so those are the only two that can break the output.
+static void json_escape(char *pDst, int DstSize, const char *pSrc)
+{
+	int d = 0;
+	for(const char *p = pSrc; *p && d < DstSize-2; p++)
+	{
+		if(*p == '"' || *p == '\\')
+			pDst[d++] = '\\';
+		pDst[d++] = *p;
+	}
+	pDst[d] = 0;
+}
+
 void CMain::JSONUpdateThread(void *pUser)
 {
 	CJSONUpdateThreadData *m_pJSONUpdateThreadData = (CJSONUpdateThreadData *)pUser;
@@ -209,14 +224,24 @@ void CMain::JSONUpdateThread(void *pUser)
 	{
 		char aFileBuf[2048*NET_MAX_CLIENTS];
 		char *pBuf = aFileBuf;
+		int Entries = 0;
 
 		str_format(pBuf, sizeof(aFileBuf), "{\n\"servers\": [\n");
 		pBuf += strlen(pBuf);
 
 		for(int i = 0; i < NET_MAX_CLIENTS; i++)
 		{
+			char aName[2*128], aType[2*128], aHost[2*128], aLocation[2*128], aCustom[2*512];
+
 			if(!pClients[i].m_Active || pClients[i].m_Disabled)
 				continue;
+
+			json_escape(aName, sizeof(aName), pClients[i].m_aName);
+			json_escape(aType, sizeof(aType), pClients[i].m_aType);
+			json_escape(aHost, sizeof(aHost), pClients[i].m_aHost);
+			json_escape(aLocation, sizeof(aLocation), pClients[i].m_aLocation);
+			json_escape(aCustom, sizeof(aCustom), pClients[i].m_Stats.m_aCustom);
+			Entries++;
 
 			if(pClients[i].m_Connected)
 			{
@@ -234,21 +259,23 @@ void CMain::JSONUpdateThread(void *pUser)
 					str_format(aUptime, sizeof(aUptime), "%02d:%02d:%02d", (int)(pClients[i].m_Stats.m_Uptime/60.0/60.0), (int)((pClients[i].m_Stats.m_Uptime/60)%60), (int)((pClients[i].m_Stats.m_Uptime)%60));
 
 				str_format(pBuf, sizeof(aFileBuf) - (pBuf - aFileBuf), "{ \"name\": \"%s\", \"type\": \"%s\", \"host\": \"%s\", \"location\": \"%s\", \"online4\": %s, \"online6\": %s, \"uptime\": \"%s\", \"load\": %.2f, \"network_rx\": %" PRId64 ", \"network_tx\": %" PRId64 ", \"cpu\": %d, \"memory_total\": %" PRId64 ", \"memory_used\": %" PRId64 ", \"swap_total\": %" PRId64 ", \"swap_used\": %" PRId64 ", \"hdd_total\": %" PRId64 ", \"hdd_used\": %" PRId64 ", \"custom\": \"%s\" },\n",
-					pClients[i].m_aName, pClients[i].m_aType, pClients[i].m_aHost, pClients[i].m_aLocation, pClients[i].m_Stats.m_Online4 ? "true" : "false", pClients[i].m_Stats.m_Online6 ? "true" : "false",	aUptime, pClients[i].m_Stats.m_Load, pClients[i].m_Stats.m_NetworkRx, pClients[i].m_Stats.m_NetworkTx, (int)pClients[i].m_Stats.m_CPU, pClients[i].m_Stats.m_MemTotal, pClients[i].m_Stats.m_MemUsed, pClients[i].m_Stats.m_SwapTotal, pClients[i].m_Stats.m_SwapUsed, pClients[i].m_Stats.m_HDDTotal, pClients[i].m_Stats.m_HDDUsed, pClients[i].m_Stats.m_aCustom);
+					aName, aType, aHost, aLocation, pClients[i].m_Stats.m_Online4 ? "true" : "false", pClients[i].m_Stats.m_Online6 ? "true" : "false",	aUptime, pClients[i].m_Stats.m_Load, pClients[i].m_Stats.m_NetworkRx, pClients[i].m_Stats.m_NetworkTx, (int)pClients[i].m_Stats.m_CPU, pClients[i].m_Stats.m_MemTotal, pClients[i].m_Stats.m_MemUsed, pClients[i].m_Stats.m_SwapTotal, pClients[i].m_Stats.m_SwapUsed, aCustom);
 				pBuf += strlen(pBuf);
 			}
 			else
 			{
 				str_format(pBuf, sizeof(aFileBuf) - (pBuf - aFileBuf), "{ \"name\": \"%s\", \"type\": \"%s\", \"host\": \"%s\", \"location\": \"%s\", \"online4\": false, \"online6\": false },\n",
-					pClients[i].m_aName, pClients[i].m_aType, pClients[i].m_aHost, pClients[i].m_aLocation);
+					aName, aType, aHost, aLocation);
 				pBuf += strlen(pBuf);
 			}
 		}
+		if(Entries)
+			pBuf -= 2; // rewind the trailing ",\n" — with zero entries there is none (the old unconditional -2 corrupted the '[' on an empty list)
 		if(!m_pJSONUpdateThreadData->m_ReloadRequired)
-			str_format(pBuf - 2, sizeof(aFileBuf) - (pBuf - aFileBuf), "\n],\n\"updated\": \"%lld\"\n}", (long long)time(/*ago*/0));
+			str_format(pBuf, sizeof(aFileBuf) - (pBuf - aFileBuf), "\n],\n\"updated\": \"%lld\"\n}", (long long)time(/*ago*/0));
 		else
 		{
-			str_format(pBuf - 2, sizeof(aFileBuf) - (pBuf - aFileBuf), "\n],\n\"updated\": \"%lld\",\n\"reload\": true\n}", (long long)time(/*ago*/0));
+			str_format(pBuf, sizeof(aFileBuf) - (pBuf - aFileBuf), "\n],\n\"updated\": \"%lld\",\n\"reload\": true\n}", (long long)time(/*ago*/0));
 			m_pJSONUpdateThreadData->m_ReloadRequired--;
 		}
 		pBuf += strlen(pBuf);
@@ -265,7 +292,9 @@ void CMain::JSONUpdateThread(void *pUser)
 		io_flush(File);
 		io_close(File);
 		fs_rename(aJSONFileTmp, pConfig->m_aJSONFile);
-		thread_sleep(1000);
+		// 2 s matches the frontend poll interval (serverstatus.js setInterval(uptime, 2000))
+		// and halves the write load; there is no staleness cutoff in the frontend.
+		thread_sleep(2000);
 	}
 	fs_remove(pConfig->m_aJSONFile);
 }
@@ -331,13 +360,13 @@ int CMain::ReadConfig()
 
 			if(m_Config.m_Verbose)
 			{
+				// never log passwords — verbose output lands in the journal
 				if(Client(ID)->m_Disabled)
-					dbg_msg("main", "[#%d: Name: \"%s\", Username: \"%s\", Type: \"%s\", Host: \"%s\", Location: \"%s\", Password: \"%s\"]",
-						ID, Client(ID)->m_aName, Client(ID)->m_aUsername, Client(ID)->m_aType, Client(ID)->m_aHost, Client(ID)->m_aLocation, Client(ID)->m_aPassword);
+					dbg_msg("main", "[#%d: Name: \"%s\", Username: \"%s\", Type: \"%s\", Host: \"%s\", Location: \"%s\"]",
+						ID, Client(ID)->m_aName, Client(ID)->m_aUsername, Client(ID)->m_aType, Client(ID)->m_aHost, Client(ID)->m_aLocation);
 				else
-					dbg_msg("main", "#%d: Name: \"%s\", Username: \"%s\", Type: \"%s\", Host: \"%s\", Location: \"%s\", Password: \"%s\"",
-						ID, Client(ID)->m_aName, Client(ID)->m_aUsername, Client(ID)->m_aType, Client(ID)->m_aHost, Client(ID)->m_aLocation, Client(ID)->m_aPassword);
-
+					dbg_msg("main", "#%d: Name: \"%s\", Username: \"%s\", Type: \"%s\", Host: \"%s\", Location: \"%s\"",
+						ID, Client(ID)->m_aName, Client(ID)->m_aUsername, Client(ID)->m_aType, Client(ID)->m_aHost, Client(ID)->m_aLocation);
 			}
 			ID++;
 		}
@@ -381,7 +410,11 @@ int CMain::Run()
 		m_Server.Update();
 
 		// wait for incomming data
-		net_socket_read_wait(*m_Server.Network()->Socket(), 10);
+		// NOTE: the select() inside only watches the LISTEN socket — established
+		// client sockets are drained by polling each pass, so this timeout is the
+		// effective poll interval for client data. Clients report once per second;
+		// 250 ms adds no observable latency and cuts idle wakeups 25x vs the old 10 ms.
+		net_socket_read_wait(*m_Server.Network()->Socket(), 250);
 	}
 
 	dbg_msg("server", "Closing.");

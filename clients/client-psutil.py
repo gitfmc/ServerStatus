@@ -21,8 +21,10 @@ def get_uptime():
 def get_memory():
 	Mem = psutil.virtual_memory()
 	try:
-		MemUsed = Mem.total - (Mem.cached + Mem.free)
-	except:
+		# total - available is what free(1) calls "used": it also credits
+		# buffers and reclaimable slab, unlike the old total - (cached + free)
+		MemUsed = Mem.total - Mem.available
+	except AttributeError:
 		MemUsed = Mem.total - Mem.free
 	return int(Mem.total/1024.0), int(MemUsed/1024.0)
 

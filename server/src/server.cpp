@@ -101,7 +101,7 @@ void CServer::Update()
 			const char *pTmp;
 
 			if(!(pTmp = str_find(aBuf, ":"))
-				|| (unsigned)(pTmp - aBuf) > sizeof(aUsername) || (unsigned)(str_length(pTmp) - 1) > sizeof(aPassword))
+				|| (unsigned)(pTmp - aBuf) >= sizeof(aUsername) || (unsigned)(str_length(pTmp) - 1) >= sizeof(aPassword))
 			{
 				m_Network.NetBan()->BanAddr(m_Network.ClientAddr(ClientID), 60, "You're an idiot, go away.");
 				m_Network.Drop(ClientID, "Fuck off.");

@@ -1,18 +1,34 @@
 [Unit]
-Description=ServerStatus Master Server
-After=syslog.target
+Description=ServerStatus master server (sergate)
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/usr/local/share/ServerStatus/server
-User=botox.bz
-Group=http
-ExecStart=/usr/local/share/ServerStatus/server/sergate -d /home/botox.bz/status
+# sergate needs: read access to config.json, write access to <web-dir>/json/
+ExecStart=/usr/local/bin/sergate -c /etc/sergate/config.json -d /var/www/serverstatus
 ExecReload=/bin/kill -HUP $MAINPID
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=sergate
+Restart=always
+RestartSec=5
+
+# Hardening — sergate is an internet-facing TCP daemon; contain it.
+DynamicUser=yes
+# stats.json lives under the web dir; keep everything else read-only
+ReadWritePaths=/var/www/serverstatus/json
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
 
 [Install]
 WantedBy=multi-user.target

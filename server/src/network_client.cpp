@@ -157,10 +157,11 @@ int CNetworkClient::Send(const char *pLine)
 	char aBuf[1024];
 	str_copy(aBuf, pLine, (int)(sizeof(aBuf))-2);
 	int Length = str_length(aBuf);
-	aBuf[Length] = m_aLineEnding[0];
-	aBuf[Length+1] = m_aLineEnding[1];
-	aBuf[Length+2] = m_aLineEnding[2];
-	Length += 3;
+	// append only the actual line ending (1 or 2 chars) — the old fixed +3
+	// pushed 1-2 stray NUL bytes into the stream after every message
+	int EndingLength = str_length(m_aLineEnding);
+	mem_copy(aBuf+Length, m_aLineEnding, EndingLength);
+	Length += EndingLength;
 	const char *pData = aBuf;
 
 	while(1)
